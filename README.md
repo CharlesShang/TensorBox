@@ -5,10 +5,12 @@ Training requires a text file (see [here](http://russellsstewart.com/s/tensorbox
 of paths to images on disk and the corresponding object locations in each image.
 The basic model implements the simple and robust GoogLeNet-OverFeat algorithm. We additionally provide an implementation of the 
 [ReInspect](https://github.com/Russell91/ReInspect/)
-algorithm, reproducing state-of-the-art detection results on the highly occluded TUD crossing and brainwash datasets. 
+algorithm, reproducing state-of-the-art detection results on the highly occluded TUD crossing and brainwash datasets.
 
 Special thanks to [Brett Kuprel](http://stanford.edu/~kuprel/) of Sebastian Thrun's group for providing the initial code
 to hack into Google's pretrained ImageNet weights for finetuning.
+
+Training details are outlied below. If you have difficulties, I'm going to try and be available for office hours on gitter from 2-2:30 pm on Monday's: [![Join the chat at https://gitter.im/Russell91/TensorBox](https://badges.gitter.im/Russell91/TensorBox.svg)](https://gitter.im/Russell91/TensorBox?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 ## OverFeat Installation & Training
 First, [install TensorFlow from source or pip](https://www.tensorflow.org/versions/r0.7/get_started/os_setup.html#pip-installation)
