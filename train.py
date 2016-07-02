@@ -16,7 +16,8 @@ import argparse
 import os
 import tensorflow as tf
 import numpy as np
-from tensorflow.models.rnn import rnn_cell
+# from tensorflow.models.rnn import rnn_cell
+rnn_cell = tf.nn.rnn_cell
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
 
@@ -372,8 +373,8 @@ def build(H, q):
 
     os.environ['CUDA_VISIBLE_DEVICES'] = str(solver['gpu'])
 
-    #gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
-    gpu_options = tf.GPUOptions()
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
+    #gpu_options = tf.GPUOptions()
     config = tf.ConfigProto(gpu_options=gpu_options)
 
     encoder_net = googlenet_load.init(H, config)
