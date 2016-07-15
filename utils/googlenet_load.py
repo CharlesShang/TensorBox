@@ -18,24 +18,27 @@ def init(H, config=None):
 
     dense_layer_num_output = [k, 4]
 
-    googlenet_graph = tf.Graph()
-    graph_def = tf.GraphDef()
+    googlenet_graph = tf.Graph()    # Graph contains Ops and Tensors. Ops represent computation, and Tensors represent unit of data that flow
+    graph_def = tf.GraphDef()  # GraphDef is a protobuf and used for load, store graphs
     tf.set_random_seed(0)
     with open(graph_def_orig_file) as f:
         tf.set_random_seed(0)
         graph_def.MergeFromString(f.read())
 
-    with googlenet_graph.as_default():
-        tf.import_graph_def(graph_def, name='')
+    with googlenet_graph.as_default(): # as_default overrides the current default graph
+        tf.import_graph_def(graph_def, name='') # import GraphDef to the default graph
 
     input_op = googlenet_graph.get_operation_by_name(input_layer)
 
+    # get all the const Ops?
+    # all the weights vars
     weights_ops = [
         op for op in googlenet_graph.get_operations() 
         if any(op.name.endswith(x) for x in [ '_w', '_b'])
         and op.type == 'Const'
     ]
 
+    # Conv, Relu, Concat, MaxPool, BiasAdd, etc.
     reuse_ops = [
         op for op in googlenet_graph.get_operations() 
         if op not in weights_ops + [input_op]
@@ -81,6 +84,7 @@ def init(H, config=None):
     W_norm = tf.reduce_sum(tf.pack(W_norm), name='weights_norm')
     tf.scalar_summary(W_norm.op.name, W_norm)
 
+    # contains the simplest version of googlenet, weihgts and ops
     googlenet = {
         "W": W,
         "B": B,
@@ -102,6 +106,7 @@ def model(x, googlenet, H):
     T = weight_tensors
     T[input_op.name] = x
 
+    # building computation graph, for each Conv, Relu, MaxPool layer, specify its input and output
     for op in reuse_ops:
         if is_early_loss(op.name):
             continue

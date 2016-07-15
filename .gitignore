@@ -5,3 +5,5 @@ output/*
 *.so
 inception/*
 hypes/*.json
+data
+.idea

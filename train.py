@@ -38,13 +38,13 @@ def build_lstm_inner(lstm_input, H):
         lstm = lstm_cell
 
     batch_size = H['arch']['batch_size'] * H['arch']['grid_height'] * H['arch']['grid_width']
-    state = tf.zeros([batch_size, lstm.state_size])
+    state = tf.zeros([batch_size, lstm.state_size]) # set the first state to 0s
 
     outputs = []
     with tf.variable_scope('RNN', initializer=tf.random_uniform_initializer(-0.1, 0.1)):
         for time_step in range(H['arch']['rnn_len']):
             if time_step > 0: tf.get_variable_scope().reuse_variables()
-            output, state = lstm(lstm_input, state)
+            output, state = lstm(lstm_input, state)  # a cell means ONE time step, so there're totally rnn_len timesteps
             outputs.append(output)
     return outputs
 
@@ -56,8 +56,8 @@ def build_overfeat_inner(lstm_input, H):
         raise ValueError('rnn_len > 1 only supported with use_lstm == True')
     outputs = []
     with tf.variable_scope('Overfeat', initializer=tf.random_uniform_initializer(-0.1, 0.1)):
-        w = tf.get_variable('ip', shape=[1024, H['arch']['lstm_size']])
-        outputs.append(tf.matmul(lstm_input, w))
+        w = tf.get_variable('ip', shape=[1024, H['arch']['lstm_size']]) # get an existing var or create new one if created
+        outputs.append(tf.matmul(lstm_input, w)) # x * w
     return outputs
 
 def to_idx(vec, w_shape):
@@ -205,7 +205,7 @@ def build_forward(H, x, googlenet, phase, reuse):
         Z2 = tf.nn.avg_pool(Z2, ksize=[1, pool_size, pool_size, 1], strides=[1, 1, 1, 1], padding='SAME')
         Z = tf.concat(3, [Z1, Z2])
     Z = tf.reshape(Z, [H['arch']['batch_size'] * H['arch']['grid_width'] * H['arch']['grid_height'], 1024])
-    with tf.variable_scope('decoder', reuse=reuse):
+    with tf.variable_scope('googlenet', reuse=reuse):
         scale_down = 0.01
         lstm_input = tf.reshape(Z * scale_down, (H['arch']['batch_size'] * grid_size, 1024))
         if H['arch']['use_lstm']:
@@ -436,6 +436,7 @@ def build(H, q):
                 tf.scalar_summary("%s/regression_loss" % p, boxes_loss[p])
                 tf.scalar_summary("%s/regression_loss/smooth" % p,
                     moving_avg.average(boxes_loss[p]))
+                tf.scalar_summary("%s/w_norm" % p, W_norm)
 
         if phase == 'test':
             test_image = x
@@ -466,6 +467,7 @@ def train(H, test_images):
     with open(H['save_dir'] + '/hypes.json', 'w') as f:
         json.dump(H, f, indent=4)
 
+    # building a data-fetching graph
     x_in = tf.placeholder(tf.float32)
     confs_in = tf.placeholder(tf.float32)
     boxes_in = tf.placeholder(tf.float32)
@@ -486,6 +488,7 @@ def train(H, test_images):
         return {x_in: d['image'], confs_in: d['confs'], boxes_in: d['boxes'],
                 learning_rate: H['solver']['learning_rate']}
 
+    # this function will never end, bacause gen is generator create by train_utils.load_data_gen
     def my_loop(coord, sess, enqueue_op, phase, gen):
         for d in gen:
             try:
@@ -494,16 +497,13 @@ def train(H, test_images):
                 print('Cancelling data input queues\n')
                 break
 
+    # building main computation graph
     (config, loss, accuracy, summary_op, train_op, W_norm,
      test_image, test_pred_boxes, test_pred_confidences,
      test_true_boxes, test_true_confidences,
      smooth_op, global_step, learning_rate, encoder_net) = build(H, q)
 
     saver = tf.train.Saver(max_to_keep=None)
-    writer = tf.train.SummaryWriter(
-        logdir=H['save_dir'],
-        flush_secs=10
-    )
 
     test_image_to_log = tf.placeholder(tf.uint8,
                                        [H['arch']['image_height'], H['arch']['image_width'], 3])
@@ -513,10 +513,16 @@ def train(H, test_images):
     coord = tf.train.Coordinator()
     with tf.Session(config=config) as sess:
         threads = []
+        writer = tf.train.SummaryWriter(
+            logdir=H['save_dir'],
+            graph=sess.graph
+        )
+
+        # loading data asynchronously by creating a small data-fetching graph
         for phase in ['train', 'test']:
-            # enqueue once manually to avoid thread start delay
             gen = train_utils.load_data_gen(H, phase, jitter=H['solver']['use_jitter'])
             d = gen.next()
+            # enqueue once manually to avoid thread start delay
             sess.run(enqueue_op[phase], feed_dict=make_feed(d))
             threads.append(tf.train.threading.Thread(target=my_loop,
                                                      args=(coord, sess, enqueue_op, phase, gen)))
